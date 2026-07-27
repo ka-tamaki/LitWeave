@@ -1,0 +1,87 @@
+.keyword-field {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.keyword-field legend {
+  margin-bottom: .65rem;
+  padding: 0;
+  color: #263247;
+  font-size: .85rem;
+  font-weight: 700;
+}
+
+.keyword-field legend span {
+  margin-left: .45rem;
+  color: #6a778b;
+  font-size: .75rem;
+  font-weight: 500;
+}
+
+.keyword-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-bottom: .65rem;
+}
+
+.form-grid label.keyword-chip {
+  position: relative;
+  display: inline-flex;
+  grid-template-columns: none;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: .45rem;
+  width: auto;
+  min-height: 34px;
+  padding: .42rem .72rem;
+  border: 1px solid #c8d2df;
+  border-radius: 999px;
+  background: #f4f7fb;
+  color: #34435a;
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease, transform .15s ease;
+}
+
+.form-grid label.keyword-chip:hover {
+  border-color: #7896bc;
+  background: #eaf0f7;
+}
+
+.form-grid label.keyword-chip.selected {
+  border-color: #243e68;
+  background: #243e68;
+  color: #fff;
+  box-shadow: 0 2px 6px #13233c26;
+}
+
+.keyword-chip:active {
+  transform: translateY(1px);
+}
+
+.keyword-chip:focus-within {
+  outline: 3px solid #87a5cc;
+  outline-offset: 2px;
+}
+
+.keyword-chip input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.keyword-chip i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px #fff;
+}
+
+.keyword-chip b {
+  font-size: .78rem;
+  line-height: 1;
+}

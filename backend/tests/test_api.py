@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 from pathlib import Path
 
-from backend.app import service
+from backend.app import db, service
 from backend.tests.conftest import register
 
 
@@ -23,7 +24,18 @@ def test_register_creates_pdf_metadata_and_note(client, pdf_bytes):
     paper = response.json()
     item = library / "items" / "P000001"
     assert (item / "paper.pdf").read_bytes() == pdf_bytes
-    assert (item / "note.md").read_text(encoding="utf-8").count("## ") == 9
+    assert (item / "note.md").read_text(encoding="utf-8") == """## 要約
+
+## 研究方法・条件
+
+## 主な結果
+
+## 評価・疑問
+
+## 自分の研究への活用
+
+## 関連文献
+"""
     metadata = json.loads((item / "metadata.json").read_text(encoding="utf-8"))
     assert metadata["schema_version"] == 1
     assert metadata["doi"] == "10.1000/ABC"
@@ -80,6 +92,26 @@ def test_doi_normalization_variants(client, pdf_bytes):
     assert paper["doi"] == "10.5555/Test"
 
 
+def test_previous_default_note_templates_use_current_default(client, pdf_bytes):
+    http, library = client
+    from backend.app.storage import (
+        LEGACY_NOTE_TEMPLATE,
+        NOTE_TEMPLATE,
+        PREVIOUS_NOTE_TEMPLATE,
+        effective_note_template,
+    )
+
+    settings_path = library / "config" / "settings.json"
+    settings = json.loads(settings_path.read_text(encoding="utf-8"))
+    assert effective_note_template({"note_template": LEGACY_NOTE_TEMPLATE}) == NOTE_TEMPLATE
+    settings["note_template"] = PREVIOUS_NOTE_TEMPLATE
+    settings_path.write_text(json.dumps(settings, ensure_ascii=False), encoding="utf-8")
+
+    assert http.get("/api/settings/template").json()["content"] == NOTE_TEMPLATE
+    paper = register(http, pdf_bytes).json()
+    assert (library / "items" / paper["display_id"] / "note.md").read_text(encoding="utf-8") == NOTE_TEMPLATE
+
+
 def test_status_change_records_history_and_completed_date(client, pdf_bytes):
     http, _ = client
     paper = register(http, pdf_bytes).json()
@@ -87,6 +119,54 @@ def test_status_change_records_history_and_completed_date(client, pdf_bytes):
     assert changed["status"] == "既読"
     assert changed["completed_date"]
     assert [item["status"] for item in changed["status_history"]] == ["未読", "既読"]
+
+
+def test_tasks_are_persisted_completed_deleted_and_rebuilt(client, pdf_bytes):
+    http, library = client
+    paper = register(http, pdf_bytes).json()
+    created = http.post(
+        f"/api/papers/{paper['id']}/tasks",
+        json={"title": "  関連論文を読む  ", "description": "  参考文献の3番を確認する  "},
+    )
+    assert created.status_code == 201
+    task = created.json()
+    assert task["title"] == "関連論文を読む"
+    assert task["description"] == "参考文献の3番を確認する"
+    assert task["completed"] is False
+
+    listed = http.get("/api/papers").json()[0]
+    assert listed["tasks"] == [task]
+    metadata_path = library / "items" / paper["display_id"] / "metadata.json"
+    assert json.loads(metadata_path.read_text(encoding="utf-8"))["tasks"] == [task]
+
+    completed = http.patch(
+        f"/api/papers/{paper['id']}/tasks/{task['id']}",
+        json={"title": "関連研究を読む", "description": "方法を比較する", "completed": True},
+    )
+    assert completed.status_code == 200
+    assert completed.json()["title"] == "関連研究を読む"
+    assert completed.json()["description"] == "方法を比較する"
+    assert completed.json()["completed"] is True
+    assert http.post("/api/maintenance/rebuild").json()["errors"] == []
+    rebuilt = http.get(f"/api/papers/{paper['id']}").json()
+    assert rebuilt["tasks"][0]["completed"] is True
+
+    deleted = http.delete(f"/api/papers/{paper['id']}/tasks/{task['id']}")
+    assert deleted.status_code == 204
+    assert http.get(f"/api/papers/{paper['id']}").json()["tasks"] == []
+    assert json.loads(metadata_path.read_text(encoding="utf-8"))["tasks"] == []
+
+
+def test_existing_task_index_gets_description_column(tmp_path, monkeypatch):
+    local = tmp_path / "local"
+    local.mkdir()
+    monkeypatch.setenv("LITWEAVE_LOCAL_DATA_DIR", str(local))
+    with sqlite3.connect(local / "litweave.db") as connection:
+        connection.execute("CREATE TABLE tasks (id TEXT PRIMARY KEY)")
+    db.configure_database()
+    with sqlite3.connect(local / "litweave.db") as connection:
+        columns = {value[1] for value in connection.execute("PRAGMA table_info(tasks)")}
+    assert "description" in columns
 
 
 def test_search_only_title_authors_keywords_and_all_terms(client, pdf_bytes):

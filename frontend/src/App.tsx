@@ -1,7 +1,7 @@
 import {useEffect, useState} from "react";
 import {NavLink, Navigate, Route, Routes} from "react-router-dom";
 import {api} from "./api";
-import LibraryPage from "./pages/LibraryPage";
+import HomePage from "./pages/HomePage";
 import RegisterPage from "./pages/RegisterPage";
 import DetailPage from "./pages/DetailPage";
 import GraphPage from "./pages/GraphPage";
@@ -10,11 +10,11 @@ import TrashPage from "./pages/TrashPage";
 import SettingsPage from "./pages/SettingsPage";
 
 type SystemInfo = {version: string; configured: boolean; library_path?: string; available: boolean; writable: boolean; message: string};
-type MenuIconName = "library" | "register" | "graph" | "keywords" | "trash" | "settings";
+type MenuIconName = "home" | "register" | "graph" | "keywords" | "trash" | "settings";
 
 function MenuIcon({name}: {name: MenuIconName}) {
   const common = {width: 19, height: 19, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true};
-  if (name === "library") return <svg {...common}><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v16H6.5a2.5 2.5 0 0 0 0 5H20"/><path d="M4 5.5v16"/></svg>;
+  if (name === "home") return <svg {...common}><path d="m3 11 9-8 9 8"/><path d="M5 10v11h14V10M9 21v-7h6v7"/></svg>;
   if (name === "register") return <svg {...common}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 12v6M9 15h6"/></svg>;
   if (name === "graph") return <svg {...common}><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="m7.2 7.2 3.5 8.3m6.1-8.3-3.5 8.3M7.5 6h9"/></svg>;
   if (name === "keywords") return <svg {...common}><path d="M20 13 13 20a2 2 0 0 1-2.8 0L4 13.8V4h9.8L20 10.2a2 2 0 0 1 0 2.8Z"/><circle cx="9" cy="9" r="1.2"/></svg>;
@@ -58,7 +58,7 @@ export default function App() {
     <aside>
       <div className="brand"><span>LW</span><div><strong>LitWeave</strong><small>論文を編み、知識をつなぐ</small></div></div>
       <nav>
-        <NavLink to="/library" style={{display: "flex", alignItems: "center", gap: ".75rem"}}><MenuIcon name="library"/>ライブラリ</NavLink>
+        <NavLink to="/home" style={{display: "flex", alignItems: "center", gap: ".75rem"}}><MenuIcon name="home"/>ホーム</NavLink>
         <NavLink to="/register" style={{display: "flex", alignItems: "center", gap: ".75rem"}}><MenuIcon name="register"/>論文登録</NavLink>
         <NavLink to="/graph" style={{display: "flex", alignItems: "center", gap: ".75rem"}}><MenuIcon name="graph"/>ナレッジグラフ</NavLink>
         <NavLink to="/keywords" style={{display: "flex", alignItems: "center", gap: ".75rem"}}><MenuIcon name="keywords"/>キーワード管理</NavLink>
@@ -70,14 +70,15 @@ export default function App() {
     <div className="main-area">
       {!system.available && <div className="readonly">保存先を利用できないため、編集操作を停止しています。Box Driveを確認してください。</div>}
       <Routes>
-        <Route path="/library" element={<LibraryPage />} />
+        <Route path="/home" element={<HomePage readonly={!system.writable} />} />
+        <Route path="/library" element={<Navigate to="/home" replace />} />
         <Route path="/register" element={<RegisterPage readonly={!system.writable} />} />
         <Route path="/papers/:id" element={<DetailPage readonly={!system.writable} />} />
         <Route path="/graph" element={<GraphPage />} />
         <Route path="/keywords" element={<KeywordsPage readonly={!system.writable} />} />
         <Route path="/trash" element={<TrashPage readonly={!system.writable} />} />
         <Route path="/settings" element={<SettingsPage system={system} readonly={!system.writable} refresh={refresh} />} />
-        <Route path="*" element={<Navigate to="/library" replace />} />
+        <Route path="*" element={<Navigate to="/home" replace />} />
       </Routes>
     </div>
   </div>;

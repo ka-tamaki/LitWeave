@@ -1,4 +1,5 @@
 export type Keyword = {id: string; name: string; color: string; usage_count?: number; paper_ids?: string[]};
+export type Task = {id: string; paper_id: string; title: string; description: string; completed: boolean; created_at: string; updated_at: string};
 export type Paper = {
   id: string;
   display_id: string;
@@ -24,5 +25,6 @@ export type Paper = {
   trashed: boolean;
   deleted_at: string | null;
   keywords: Keyword[];
+  tasks?: Task[];
 };
 export type Citation = {id: string; source_id: string; target_id: string; note: string; created_at: string};

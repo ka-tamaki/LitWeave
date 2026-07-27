@@ -22,11 +22,13 @@ from .schemas import (
     NoteUpdate,
     PaperUpdate,
     SetupRequest,
+    TaskCreate,
+    TaskUpdate,
     TemplateUpdate,
 )
 from .storage import (
-    NOTE_TEMPLATE,
     create_lightweight_backup,
+    effective_note_template,
     get_local_settings,
     initialize_library,
     library_path,
@@ -213,6 +215,30 @@ def note_save(paper_id: str, request: NoteUpdate):
         raise fail(exc) from exc
 
 
+@app.post("/api/papers/{paper_id}/tasks", status_code=201)
+def task_create(paper_id: str, request: TaskCreate):
+    try:
+        return service.create_task(paper_id, request.title, request.description)
+    except Exception as exc:
+        raise fail(exc) from exc
+
+
+@app.patch("/api/papers/{paper_id}/tasks/{task_id}")
+def task_update(paper_id: str, task_id: str, request: TaskUpdate):
+    try:
+        return service.update_task(paper_id, task_id, request.model_dump(exclude_unset=True))
+    except Exception as exc:
+        raise fail(exc) from exc
+
+
+@app.delete("/api/papers/{paper_id}/tasks/{task_id}", status_code=204)
+def task_delete(paper_id: str, task_id: str):
+    try:
+        service.delete_task(paper_id, task_id)
+    except Exception as exc:
+        raise fail(exc) from exc
+
+
 @app.post("/api/papers/{paper_id}/open")
 def open_pdf(paper_id: str):
     try:
@@ -350,7 +376,7 @@ def export(kind: str):
 def get_template():
     try:
         settings = read_json(library_path() / "config" / "settings.json")
-        return {"content": settings.get("note_template", NOTE_TEMPLATE)}
+        return {"content": effective_note_template(settings)}
     except Exception as exc:
         raise fail(exc) from exc
 

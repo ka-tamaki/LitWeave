@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from sqlalchemy import JSON, Boolean, ForeignKey, Integer, String, Text, create_engine
+from sqlalchemy import JSON, Boolean, ForeignKey, Integer, String, Text, create_engine, inspect, text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 
 
@@ -57,6 +57,9 @@ class Paper(Base):
     keywords: Mapped[list["Keyword"]] = relationship(
         secondary="paper_keywords", back_populates="papers", lazy="selectin"
     )
+    tasks: Mapped[list["Task"]] = relationship(
+        back_populates="paper", cascade="all, delete-orphan", lazy="selectin", order_by="Task.created_at"
+    )
 
 
 class Keyword(Base):
@@ -81,6 +84,18 @@ class Citation(Base):
     created_at: Mapped[str] = mapped_column(String(40))
 
 
+class Task(Base):
+    __tablename__ = "tasks"
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    paper_id: Mapped[str] = mapped_column(ForeignKey("papers.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(Text)
+    description: Mapped[str] = mapped_column(Text, default="")
+    completed: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    created_at: Mapped[str] = mapped_column(String(40))
+    updated_at: Mapped[str] = mapped_column(String(40))
+    paper: Mapped[Paper] = relationship(back_populates="tasks")
+
+
 _engine = None
 SessionLocal = sessionmaker(expire_on_commit=False)
 
@@ -94,6 +109,9 @@ def configure_database() -> None:
     _engine = create_engine(f"sqlite:///{data_dir / 'litweave.db'}", connect_args={"check_same_thread": False})
     SessionLocal.configure(bind=_engine)
     Base.metadata.create_all(_engine)
+    if "description" not in {column["name"] for column in inspect(_engine).get_columns("tasks")}:
+        with _engine.begin() as connection:
+            connection.execute(text("ALTER TABLE tasks ADD COLUMN description TEXT NOT NULL DEFAULT ''"))
 
 
 def reset_database() -> None:

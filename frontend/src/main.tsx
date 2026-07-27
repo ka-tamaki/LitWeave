@@ -4,6 +4,7 @@ import { BrowserRouter } from "react-router-dom";
 import App from "./App";
 import "./styles.css";
 import "./theme.css";
+import "./keyword-selector.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode><BrowserRouter><App /></BrowserRouter></StrictMode>,

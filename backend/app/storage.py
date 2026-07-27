@@ -15,7 +15,7 @@ from .db import local_data_dir
 
 SCHEMA_VERSION = 1
 LIBRARY_DIRS = ("items", "citations", "config", "trash", "backups")
-NOTE_TEMPLATE = """## 要点
+LEGACY_NOTE_TEMPLATE = """## 要点
 
 ## 研究の背景・目的
 
@@ -33,6 +33,37 @@ NOTE_TEMPLATE = """## 要点
 
 ## 自分のメモ
 """
+PREVIOUS_NOTE_TEMPLATE = """## 要約
+
+## 研究方法・条件
+
+## 主な結果
+
+## 評価・疑問
+
+## 自分の研究への活用
+
+## 関連文献・次のアクション
+"""
+NOTE_TEMPLATE = """## 要約
+
+## 研究方法・条件
+
+## 主な結果
+
+## 評価・疑問
+
+## 自分の研究への活用
+
+## 関連文献
+"""
+
+
+def effective_note_template(settings: dict[str, Any]) -> str:
+    template = settings.get("note_template")
+    if not template or template in {LEGACY_NOTE_TEMPLATE, PREVIOUS_NOTE_TEMPLATE}:
+        return NOTE_TEMPLATE
+    return str(template)
 
 
 def now_iso() -> str:

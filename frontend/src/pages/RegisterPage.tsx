@@ -2,6 +2,7 @@ import {useEffect, useRef, useState} from "react";
 import {useNavigate} from "react-router-dom";
 import {api} from "../api";
 import type {Keyword} from "../types";
+import KeywordSelector from "../components/KeywordSelector";
 
 async function readPdfSignature(file: File) {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -97,15 +98,7 @@ export default function RegisterPage({readonly}: {readonly: boolean}) {
         <label>DOI<input name="doi" placeholder="10.xxxx/..." /></label>
         <label>URL<input name="url" type="url" /></label>
         <label>言語<select name="language"><option>日本語</option><option>英語</option><option>その他</option></select></label>
-        <fieldset className="full keyword-field">
-          <legend>キーワード</legend>
-          {keywords.length > 0
-            ? <div className="keyword-options">{keywords.map(value => <label className="tag" key={value.id}><input type="checkbox" name="keyword_ids" value={value.id} /> {value.name}</label>)}</div>
-            : <p className="muted">登録済みのキーワードはありません。先に「キーワード管理」で作成してください。</p>}
-          <small className="muted">「キーワード管理」で登録したキーワードから選択します。複数選択できます。</small>
-        </fieldset>
-        <label className="full">要旨<textarea name="abstract" /></label>
-        <label className="full">備考<textarea name="remarks" /></label>
+        <KeywordSelector keywords={keywords} />
       </div>
       {error && <div className="error" role="alert">{error}<small>{errorHelp}</small></div>}
       {busy && <div role="status" aria-live="polite"><p className="muted">{progressMessage}</p><div className="progress" aria-label="登録処理中"><span /></div></div>}

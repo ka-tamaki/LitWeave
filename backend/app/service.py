@@ -13,13 +13,13 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from .db import Citation, Keyword, Paper, PaperKeyword, SessionLocal, reset_database
+from .db import Citation, Keyword, Paper, PaperKeyword, SessionLocal, Task, reset_database
 from .storage import (
-    NOTE_TEMPLATE,
     SCHEMA_VERSION,
     atomic_write,
     copy_pdf_atomic,
     create_lightweight_backup,
+    effective_note_template,
     hash_stream,
     library_path,
     normalize_doi,
@@ -38,6 +38,18 @@ def keyword_dict(keyword: Keyword) -> dict[str, Any]:
         "color": keyword.color,
         "usage_count": len([paper for paper in keyword.papers if not paper.trashed]),
         "paper_ids": [paper.id for paper in keyword.papers if not paper.trashed],
+    }
+
+
+def task_dict(task: Task) -> dict[str, Any]:
+    return {
+        "id": task.id,
+        "paper_id": task.paper_id,
+        "title": task.title,
+        "description": task.description,
+        "completed": task.completed,
+        "created_at": task.created_at,
+        "updated_at": task.updated_at,
     }
 
 
@@ -69,6 +81,7 @@ def paper_dict(paper: Paper) -> dict[str, Any]:
         "trashed": paper.trashed,
         "deleted_at": paper.deleted_at,
         "keywords": [{"id": value.id, "name": value.name, "color": value.color} for value in paper.keywords],
+        "tasks": [task_dict(value) for value in paper.tasks],
     }
 
 
@@ -156,7 +169,7 @@ def create_paper(stream, filename: str, fields: dict[str, Any]) -> dict[str, Any
             directory.mkdir(parents=False)
             copy_pdf_atomic(stream, directory / "paper.pdf", digest)
             settings = read_json(library_path() / "config" / "settings.json")
-            atomic_write(directory / "note.md", settings.get("note_template", NOTE_TEMPLATE).encode("utf-8"))
+            atomic_write(directory / "note.md", effective_note_template(settings).encode("utf-8"))
             session.add(paper)
             session.flush()
             persist_paper(paper)
@@ -263,6 +276,66 @@ def save_note(paper_id: str, content: str) -> dict[str, Any]:
         persist_paper(paper)
         session.commit()
         return {"saved_at": paper.updated_at}
+
+
+def create_task(paper_id: str, title: str, description: str = "") -> dict[str, Any]:
+    cleaned = title.strip()
+    if not cleaned:
+        raise ValueError("タスクは空欄にできません。")
+    with SessionLocal() as session:
+        paper = get_paper(session, paper_id)
+        created = now_iso()
+        task = Task(
+            id=str(uuid.uuid4()),
+            paper_id=paper.id,
+            title=cleaned,
+            description=description.strip(),
+            completed=False,
+            created_at=created,
+            updated_at=created,
+        )
+        paper.tasks.append(task)
+        paper.updated_at = created
+        session.flush()
+        persist_paper(paper)
+        session.commit()
+        return task_dict(task)
+
+
+def update_task(paper_id: str, task_id: str, values: dict[str, Any]) -> dict[str, Any]:
+    with SessionLocal() as session:
+        paper = get_paper(session, paper_id)
+        task = session.get(Task, task_id)
+        if task is None or task.paper_id != paper.id:
+            raise LookupError("タスクが見つかりません。")
+        if "title" in values:
+            cleaned = str(values["title"]).strip()
+            if not cleaned:
+                raise ValueError("タスクは空欄にできません。")
+            task.title = cleaned
+        if "description" in values:
+            task.description = str(values["description"]).strip()
+        if "completed" in values:
+            task.completed = bool(values["completed"])
+        task.updated_at = now_iso()
+        paper.updated_at = task.updated_at
+        session.flush()
+        persist_paper(paper)
+        session.commit()
+        return task_dict(task)
+
+
+def delete_task(paper_id: str, task_id: str) -> None:
+    with SessionLocal() as session:
+        paper = get_paper(session, paper_id)
+        task = session.get(Task, task_id)
+        if task is None or task.paper_id != paper.id:
+            raise LookupError("タスクが見つかりません。")
+        paper.tasks.remove(task)
+        paper.updated_at = now_iso()
+        session.flush()
+        persist_paper(paper)
+        session.commit()
 
 
 def create_keyword(name: str, color: str) -> dict[str, Any]:
@@ -485,6 +558,18 @@ def rebuild_index() -> dict[str, Any]:
                     trashed=trashed,
                 )
                 paper.keywords = [keyword_map[value["id"]] for value in item.get("keywords", []) if value["id"] in keyword_map]
+                paper.tasks = [
+                    Task(
+                        id=value["id"],
+                        paper_id=paper.id,
+                        title=value["title"],
+                        description=value.get("description", ""),
+                        completed=bool(value.get("completed", False)),
+                        created_at=value.get("created_at", paper.created_at),
+                        updated_at=value.get("updated_at", paper.updated_at),
+                    )
+                    for value in item.get("tasks", [])
+                ]
                 session.add(paper)
                 session.commit()
                 count += 1

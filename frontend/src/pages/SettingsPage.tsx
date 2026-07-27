@@ -2,7 +2,7 @@ import {useEffect,useState} from "react";
 import {api} from "../api";
 
 type SystemInfo={version:string;library_path?:string;available:boolean;writable:boolean;message:string};
-const defaults=["要点","研究の背景・目的","対象・条件","方法","主な結果","結論・著者の主張","限界・適用範囲","重要な図表・ページ","自分のメモ"];
+const defaults=["要約","研究方法・条件","主な結果","評価・疑問","自分の研究への活用","関連文献"];
 
 export default function SettingsPage({system,readonly,refresh}:{system:SystemInfo;readonly:boolean;refresh:()=>void}){
  const [sections,setSections]=useState<string[]>(defaults);const [message,setMessage]=useState("");const [error,setError]=useState("");const [busy,setBusy]=useState(false);
