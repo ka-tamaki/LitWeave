@@ -1,0 +1,154 @@
+:root {
+  --navy-950: #13233c;
+  --navy-900: #192d4d;
+  --navy-800: #243e68;
+  --navy-700: #315487;
+  --navy-100: #e7edf5;
+  --navy-50: #f3f6fa;
+  color: #263247;
+  background: var(--navy-50);
+}
+
+body {
+  background: var(--navy-50);
+}
+
+button {
+  background: var(--navy-800);
+}
+
+button:hover {
+  background: var(--navy-950);
+}
+
+.secondary {
+  background: var(--navy-100);
+  color: var(--navy-900);
+}
+
+.secondary:hover {
+  background: #d5dfec;
+}
+
+.danger:hover {
+  background: #8d352f;
+}
+
+.text-button {
+  color: var(--navy-800);
+}
+
+aside {
+  background: var(--navy-950);
+}
+
+.brand > span {
+  color: var(--navy-950);
+}
+
+.brand small,
+.storage small {
+  color: #bdc9d9;
+}
+
+nav a {
+  color: #dbe3ef;
+}
+
+nav a:hover,
+nav a.active {
+  background: var(--navy-800);
+}
+
+.storage {
+  border-top-color: #3b5272;
+}
+
+.page h1,
+.setup-card h1 {
+  color: var(--navy-900);
+}
+
+.eyebrow,
+.summary-card span,
+th {
+  color: #65748a;
+}
+
+.summary-card strong {
+  color: var(--navy-700);
+}
+
+.summary-card:hover {
+  background: #f7f9fc;
+}
+
+.summary-card,
+.panel,
+.toolbar,
+.table-wrap,
+.graph-canvas {
+  border-color: #d8e0ea;
+}
+
+.title-link {
+  color: #294f80;
+}
+
+.tag {
+  background: #e8edf4;
+}
+
+.toolbar input,
+.toolbar select,
+input,
+select,
+textarea {
+  border-color: #c5cfdd;
+  color: #263247;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible,
+a:focus-visible,
+tr:focus-visible {
+  outline: 3px solid #87a5cc;
+  outline-offset: 2px;
+}
+
+th {
+  background: #f7f9fc;
+}
+
+tr:hover td {
+  background: #f7f9fc;
+}
+
+.setup-shell {
+  background: linear-gradient(135deg, #f4f6fa, #e5ebf4);
+}
+
+.setup-card {
+  border-color: #d6deea;
+  box-shadow: 0 20px 60px #192d4d1a;
+}
+
+.tabs button.active {
+  color: var(--navy-800);
+  border-color: var(--navy-700);
+}
+
+.dropzone.active {
+  border-color: var(--navy-700);
+  background: #eef3f9;
+}
+
+.progress {
+  background: #dbe3ef;
+}
+
+.progress span {
+  background: var(--navy-700);
+}

@@ -1,0 +1,14 @@
+.venv/
+node_modules/
+dist/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+.vite/
+playwright-report/
+test-results/
+*.log
+*.db
+*.egg-info/
+*.tsbuildinfo

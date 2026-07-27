@@ -1,0 +1,28 @@
+export type Keyword = {id: string; name: string; color: string; usage_count?: number; paper_ids?: string[]};
+export type Paper = {
+  id: string;
+  display_id: string;
+  title: string;
+  authors: string[];
+  year: number | null;
+  journal: string;
+  volume: string;
+  issue: string;
+  pages: string;
+  doi: string;
+  url: string;
+  language: string;
+  abstract: string;
+  rating: number | null;
+  completed_date: string | null;
+  remarks: string;
+  status: "未読" | "読書中" | "既読" | "再確認";
+  status_history: {status: string; changed_at: string}[];
+  created_at: string;
+  updated_at: string;
+  has_note: boolean;
+  trashed: boolean;
+  deleted_at: string | null;
+  keywords: Keyword[];
+};
+export type Citation = {id: string; source_id: string; target_id: string; note: string; created_at: string};

@@ -1,0 +1,30 @@
+[project]
+name = "litweave"
+version = "0.0.1"
+description = "論文を編み、知識をつなぐローカル論文管理アプリ"
+requires-python = ">=3.12"
+dependencies = [
+  "fastapi==0.116.1",
+  "uvicorn[standard]==0.35.0",
+  "sqlalchemy==2.0.41",
+  "alembic==1.16.4",
+  "python-multipart==0.0.20",
+  "pydantic==2.11.7",
+]
+
+[build-system]
+requires = ["setuptools==80.9.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["backend*"]
+
+[project.optional-dependencies]
+test = [
+  "pytest==8.4.1",
+  "httpx==0.28.1",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+pythonpath = ["."]
