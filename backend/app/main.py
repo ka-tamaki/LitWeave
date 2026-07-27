@@ -67,7 +67,15 @@ def fail(exc: Exception) -> HTTPException:
         getattr(exc, "winerror", None),
     )
     if isinstance(exc, service.ConflictError):
-        return HTTPException(409, {"message": str(exc), "existing_id": exc.existing_id})
+        return HTTPException(
+            409,
+            {
+                "message": str(exc),
+                "code": exc.code,
+                "existing_id": exc.existing_id,
+                "candidates": exc.candidates,
+            },
+        )
     if isinstance(exc, LookupError):
         return HTTPException(404, str(exc))
     if isinstance(exc, (ValueError, RuntimeError)):
@@ -142,6 +150,7 @@ async def register_paper(
     abstract: str = Form(""),
     remarks: str = Form(""),
     keyword_ids: str = Form("[]"),
+    allow_metadata_duplicate: bool = Form(False),
 ):
     if not title.strip():
         raise HTTPException(422, "タイトルは必須です。")
@@ -175,7 +184,18 @@ async def register_paper(
                 "remarks": remarks,
                 "keyword_ids": keyword_id_values,
             },
+            allow_metadata_duplicate=allow_metadata_duplicate,
         )
+    except Exception as exc:
+        raise fail(exc) from exc
+    finally:
+        await pdf.close()
+
+
+@app.post("/api/papers/{paper_id}/pdf")
+async def replace_paper_pdf(paper_id: str, pdf: UploadFile = File(...)):
+    try:
+        return service.replace_paper_pdf(paper_id, pdf.file, pdf.filename or "")
     except Exception as exc:
         raise fail(exc) from exc
     finally:

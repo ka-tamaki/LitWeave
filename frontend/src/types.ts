@@ -19,6 +19,9 @@ export type Paper = {
   remarks: string;
   status: "未読" | "読書中" | "既読" | "再確認";
   status_history: {status: string; changed_at: string}[];
+  pdf_hash: string;
+  pdf_size: number;
+  pdf_replaced_at: string | null;
   created_at: string;
   updated_at: string;
   has_note: boolean;

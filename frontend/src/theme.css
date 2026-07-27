@@ -153,6 +153,46 @@ tr:hover td {
   background: var(--navy-700);
 }
 
+.duplicate-warning {
+  margin-top: 1rem;
+  border: 1px solid #d5a64a;
+  border-radius: 10px;
+  padding: 1rem;
+  background: #fff8e8;
+  color: #624813;
+}
+
+.duplicate-warning > p {
+  margin: 0.4rem 0 0.8rem;
+}
+
+.duplicate-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.duplicate-list article {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  border-top: 1px solid #ead4a7;
+  padding-top: 0.75rem;
+}
+
+.duplicate-list article > div:first-child {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.duplicate-list small {
+  display: block;
+}
+
+.duplicate-list .actions {
+  margin-top: 0;
+  justify-content: flex-end;
+}
+
 .task-form {
   display: grid;
   grid-template-columns: 1fr;
@@ -385,6 +425,10 @@ tr:hover td {
 }
 
 @media(max-width: 900px) {
+  .duplicate-list article {
+    display: grid;
+  }
+
   .task-edit-form {
     grid-template-columns: 1fr;
   }

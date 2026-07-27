@@ -49,6 +49,7 @@ class Paper(Base):
     status_history: Mapped[list[dict]] = mapped_column(JSON, default=list)
     pdf_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     pdf_size: Mapped[int] = mapped_column(Integer)
+    pdf_replaced_at: Mapped[str | None] = mapped_column(String(40), nullable=True)
     created_at: Mapped[str] = mapped_column(String(40))
     updated_at: Mapped[str] = mapped_column(String(40))
     has_note: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -109,6 +110,10 @@ def configure_database() -> None:
     _engine = create_engine(f"sqlite:///{data_dir / 'litweave.db'}", connect_args={"check_same_thread": False})
     SessionLocal.configure(bind=_engine)
     Base.metadata.create_all(_engine)
+    paper_columns = {column["name"] for column in inspect(_engine).get_columns("papers")}
+    if "pdf_replaced_at" not in paper_columns:
+        with _engine.begin() as connection:
+            connection.execute(text("ALTER TABLE papers ADD COLUMN pdf_replaced_at VARCHAR(40)"))
     if "description" not in {column["name"] for column in inspect(_engine).get_columns("tasks")}:
         with _engine.begin() as connection:
             connection.execute(text("ALTER TABLE tasks ADD COLUMN description TEXT NOT NULL DEFAULT ''"))

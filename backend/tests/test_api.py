@@ -15,6 +15,7 @@ def test_initial_setup_creates_canonical_structure(client):
     assert not (library / "litweave.db").exists()
     system = http.get("/api/system").json()
     assert system["configured"] and system["writable"]
+    assert system["version"] == "0.0.2"
 
 
 def test_register_creates_pdf_metadata_and_note(client, pdf_bytes):
@@ -72,6 +73,101 @@ def test_pdf_hash_duplicate_is_rejected(client, pdf_bytes):
     response = register(http, pdf_bytes, title="別タイトル")
     assert response.status_code == 409
     assert "P000001" in response.json()["detail"]["message"]
+
+
+def test_metadata_duplicate_warns_and_can_register_separately(client, pdf_bytes):
+    http, _ = client
+    existing = register(
+        http,
+        pdf_bytes,
+        title="Ａｌｐｈａ　Paper",
+        year="2025",
+        doi="https://doi.org/10.1000/ABC",
+    ).json()
+    warning = register(
+        http,
+        pdf_bytes + b"second",
+        title="alpha paper",
+        year="2025",
+        doi="doi:10.1000/abc",
+    )
+    assert warning.status_code == 409
+    detail = warning.json()["detail"]
+    assert detail["code"] == "metadata_duplicate"
+    assert detail["candidates"][0]["id"] == existing["id"]
+    assert set(detail["candidates"][0]["reasons"]) == {"DOI一致", "タイトル・発行年一致"}
+
+    separate = register(
+        http,
+        pdf_bytes + b"second",
+        title="alpha paper",
+        year="2025",
+        doi="doi:10.1000/abc",
+        allow_metadata_duplicate="true",
+    )
+    assert separate.status_code == 201
+    assert separate.json()["id"] != existing["id"]
+
+
+def test_title_duplicate_warns_when_one_year_is_blank(client, pdf_bytes):
+    http, _ = client
+    register(http, pdf_bytes, title="Same title", year="2024")
+    warning = register(http, pdf_bytes + b"second", title=" same  title ", year="")
+    assert warning.status_code == 409
+    assert warning.json()["detail"]["candidates"][0]["reasons"] == ["タイトル一致・発行年未入力"]
+
+
+def test_pdf_replacement_keeps_only_one_previous_version_and_rebuilds(client, pdf_bytes):
+    http, library = client
+    paper = register(http, pdf_bytes, title="Replace me").json()
+    item = library / "items" / paper["display_id"]
+    second = pdf_bytes + b"second"
+    replaced = http.post(
+        f"/api/papers/{paper['id']}/pdf",
+        files={"pdf": ("replacement.pdf", second, "application/pdf")},
+    )
+    assert replaced.status_code == 200
+    assert (item / "paper.pdf").read_bytes() == second
+    assert (item / "versions" / "paper.pdf").read_bytes() == pdf_bytes
+    assert replaced.json()["pdf_hash"] != paper["pdf_hash"]
+    assert replaced.json()["pdf_size"] == len(second)
+    assert replaced.json()["pdf_replaced_at"]
+    metadata = json.loads((item / "metadata.json").read_text(encoding="utf-8"))
+    assert metadata["pdf_replaced_at"] == replaced.json()["pdf_replaced_at"]
+
+    third = pdf_bytes + b"third"
+    replaced_again = http.post(
+        f"/api/papers/{paper['id']}/pdf",
+        files={"pdf": ("replacement.pdf", third, "application/pdf")},
+    )
+    assert replaced_again.status_code == 200
+    assert (item / "paper.pdf").read_bytes() == third
+    assert (item / "versions" / "paper.pdf").read_bytes() == second
+    assert [path.name for path in (item / "versions").iterdir()] == ["paper.pdf"]
+
+    assert http.post("/api/maintenance/rebuild").json()["errors"] == []
+    rebuilt = http.get(f"/api/papers/{paper['id']}").json()
+    assert rebuilt["pdf_hash"] == replaced_again.json()["pdf_hash"]
+    assert rebuilt["pdf_replaced_at"] == replaced_again.json()["pdf_replaced_at"]
+
+
+def test_pdf_replacement_failure_restores_current_pdf(client, pdf_bytes, monkeypatch):
+    http, library = client
+    paper = register(http, pdf_bytes, title="Keep current").json()
+    item = library / "items" / paper["display_id"]
+
+    def fail_persist(_paper):
+        raise OSError("simulated")
+
+    monkeypatch.setattr(service, "persist_paper", fail_persist)
+    response = http.post(
+        f"/api/papers/{paper['id']}/pdf",
+        files={"pdf": ("replacement.pdf", pdf_bytes + b"new", "application/pdf")},
+    )
+    assert response.status_code == 503
+    assert (item / "paper.pdf").read_bytes() == pdf_bytes
+    assert not (item / "versions" / "paper.pdf").exists()
+    assert http.get(f"/api/papers/{paper['id']}").json()["pdf_hash"] == paper["pdf_hash"]
 
 
 def test_registration_failure_removes_partial_directory(client, pdf_bytes, monkeypatch):
@@ -162,11 +258,14 @@ def test_existing_task_index_gets_description_column(tmp_path, monkeypatch):
     local.mkdir()
     monkeypatch.setenv("LITWEAVE_LOCAL_DATA_DIR", str(local))
     with sqlite3.connect(local / "litweave.db") as connection:
+        connection.execute("CREATE TABLE papers (id TEXT PRIMARY KEY)")
         connection.execute("CREATE TABLE tasks (id TEXT PRIMARY KEY)")
     db.configure_database()
     with sqlite3.connect(local / "litweave.db") as connection:
-        columns = {value[1] for value in connection.execute("PRAGMA table_info(tasks)")}
-    assert "description" in columns
+        task_columns = {value[1] for value in connection.execute("PRAGMA table_info(tasks)")}
+        paper_columns = {value[1] for value in connection.execute("PRAGMA table_info(papers)")}
+    assert "description" in task_columns
+    assert "pdf_replaced_at" in paper_columns
 
 
 def test_search_only_title_authors_keywords_and_all_terms(client, pdf_bytes):

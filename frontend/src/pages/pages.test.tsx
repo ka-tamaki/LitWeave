@@ -91,6 +91,32 @@ describe("主要画面",()=>{
     expect(body.has("year")).toBe(false);
   });
 
+  it("書誌情報の重複候補から別論文として登録できる",async()=>{
+    vi.mocked(fetch).mockImplementation((input:RequestInfo|URL,init?:RequestInit)=>{
+      const url=String(input);
+      if(url.includes("/keywords"))return response([]);
+      if(url.includes("/papers")&&init?.method==="POST"){
+        const form=init.body as FormData;
+        if(form.get("allow_metadata_duplicate")==="true")return response(paper,201);
+        return response({detail:{message:"既存論文と書誌情報が一致しています。",code:"metadata_duplicate",candidates:[{id:"1",display_id:"P000001",title:"Alpha paper",authors:["A. Author"],year:2025,doi:"10.1000/test",reasons:["DOI一致"],trashed:false}]}},409);
+      }
+      return response([]);
+    });
+    render(<MemoryRouter><RegisterPage readonly={false}/></MemoryRouter>);
+    fireEvent.change(screen.getByLabelText("タイトル *"),{target:{value:"Alpha paper"}});
+    const pdf=new File(["%PDF-new"],"new.pdf",{type:"application/pdf"});
+    fireEvent.change(document.querySelector<HTMLInputElement>('input[type="file"]')!,{target:{files:[pdf]}});
+    fireEvent.click(screen.getByText("未読として登録"));
+    expect(await screen.findByText("重複の可能性があります")).toBeInTheDocument();
+    expect(screen.getByText("DOI一致")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("別論文として登録する"));
+    await waitFor(()=>{
+      const posts=vi.mocked(fetch).mock.calls.filter(([,init])=>init?.method==="POST");
+      expect(posts).toHaveLength(2);
+      expect((posts[1][1]?.body as FormData).get("allow_metadata_duplicate")).toBe("true");
+    });
+  });
+
   it("グラフモードを切り替えられる",async()=>{
     render(<MemoryRouter><GraphPage/></MemoryRouter>);
     const select=screen.getByLabelText("グラフモード");

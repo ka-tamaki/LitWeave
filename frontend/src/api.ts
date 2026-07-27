@@ -1,5 +1,5 @@
 export class ApiError extends Error {
-  constructor(message: string, public status: number) { super(message); }
+  constructor(message: string, public status: number, public detail?: unknown) { super(message); }
 }
 
 const API_BASE = import.meta.env.DEV ? "http://127.0.0.1:8000/api" : "/api";
@@ -38,7 +38,7 @@ export async function api<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!response.ok) {
     const value = await response.json().catch(() => ({detail: "処理に失敗しました。"}));
-    throw new ApiError(formatDetail(value.detail), response.status);
+    throw new ApiError(formatDetail(value.detail), response.status, value.detail);
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;

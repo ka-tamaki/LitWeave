@@ -3,7 +3,9 @@ from __future__ import annotations
 import csv
 import io
 import json
+import os
 import shutil
+import unicodedata
 import uuid
 from datetime import date
 from pathlib import Path
@@ -75,6 +77,7 @@ def paper_dict(paper: Paper) -> dict[str, Any]:
         "status_history": paper.status_history,
         "pdf_hash": paper.pdf_hash,
         "pdf_size": paper.pdf_size,
+        "pdf_replaced_at": paper.pdf_replaced_at,
         "created_at": paper.created_at,
         "updated_at": paper.updated_at,
         "has_note": paper.has_note,
@@ -124,7 +127,50 @@ def next_display_id(session: Session) -> str:
     return f"P{highest + 1:06d}"
 
 
-def create_paper(stream, filename: str, fields: dict[str, Any]) -> dict[str, Any]:
+def normalize_title(value: str) -> str:
+    return " ".join(unicodedata.normalize("NFKC", value).casefold().split())
+
+
+def find_duplicate_candidates(
+    session: Session,
+    title: str,
+    year: int | None,
+    doi: str,
+) -> list[dict[str, Any]]:
+    normalized_title = normalize_title(title)
+    normalized_doi = normalize_doi(doi).casefold()
+    candidates: list[dict[str, Any]] = []
+    for paper in session.scalars(select(Paper).where(Paper.trashed.is_(False))).unique():
+        reasons: list[str] = []
+        if normalized_doi and paper.doi and paper.doi.casefold() == normalized_doi:
+            reasons.append("DOI一致")
+        if normalize_title(paper.title) == normalized_title:
+            if paper.year == year and year is not None:
+                reasons.append("タイトル・発行年一致")
+            elif paper.year is None or year is None:
+                reasons.append("タイトル一致・発行年未入力")
+        if reasons:
+            candidates.append(
+                {
+                    "id": paper.id,
+                    "display_id": paper.display_id,
+                    "title": paper.title,
+                    "authors": paper.authors,
+                    "year": paper.year,
+                    "doi": paper.doi,
+                    "reasons": reasons,
+                    "trashed": paper.trashed,
+                }
+            )
+    return candidates
+
+
+def create_paper(
+    stream,
+    filename: str,
+    fields: dict[str, Any],
+    allow_metadata_duplicate: bool = False,
+) -> dict[str, Any]:
     if not filename.lower().endswith(".pdf"):
         raise ValueError("PDFファイルを選択してください。")
     prefix = stream.read(5)
@@ -135,7 +181,36 @@ def create_paper(stream, filename: str, fields: dict[str, Any]) -> dict[str, Any
     with SessionLocal() as session:
         duplicate = session.scalar(select(Paper).where(Paper.pdf_hash == digest))
         if duplicate:
-            raise ConflictError(f"同一PDFは{duplicate.display_id}として登録済みです。", duplicate.id)
+            raise ConflictError(
+                f"同一PDFは{duplicate.display_id}として登録済みです。",
+                duplicate.id,
+                code="identical_pdf",
+                candidates=[
+                    {
+                        "id": duplicate.id,
+                        "display_id": duplicate.display_id,
+                        "title": duplicate.title,
+                        "authors": duplicate.authors,
+                        "year": duplicate.year,
+                        "doi": duplicate.doi,
+                        "reasons": ["PDF完全一致"],
+                        "trashed": duplicate.trashed,
+                    }
+                ],
+            )
+        candidates = find_duplicate_candidates(
+            session,
+            str(fields["title"]).strip(),
+            fields.get("year"),
+            fields.get("doi", ""),
+        )
+        if candidates and not allow_metadata_duplicate:
+            raise ConflictError(
+                "既存論文と書誌情報が一致しています。登録方法を選択してください。",
+                candidates[0]["id"],
+                code="metadata_duplicate",
+                candidates=candidates,
+            )
         display_id = next_display_id(session)
         item_id = str(uuid.uuid4())
         created = now_iso()
@@ -183,9 +258,105 @@ def create_paper(stream, filename: str, fields: dict[str, Any]) -> dict[str, Any
 
 
 class ConflictError(ValueError):
-    def __init__(self, message: str, existing_id: str | None = None):
+    def __init__(
+        self,
+        message: str,
+        existing_id: str | None = None,
+        *,
+        code: str = "conflict",
+        candidates: list[dict[str, Any]] | None = None,
+    ):
         super().__init__(message)
         self.existing_id = existing_id
+        self.code = code
+        self.candidates = candidates or []
+
+
+def replace_paper_pdf(paper_id: str, stream, filename: str) -> dict[str, Any]:
+    if not filename.lower().endswith(".pdf"):
+        raise ValueError("PDFファイルを選択してください。")
+    prefix = stream.read(5)
+    stream.seek(0)
+    if prefix != b"%PDF-":
+        raise ValueError("有効なPDF形式ではありません。")
+    digest, size = hash_stream(stream)
+    with SessionLocal() as session:
+        paper = get_paper(session, paper_id)
+        if digest == paper.pdf_hash:
+            raise ValueError("選択したPDFは現在のPDFと同一です。")
+        duplicate = session.scalar(select(Paper).where(Paper.pdf_hash == digest, Paper.id != paper_id))
+        if duplicate:
+            raise ConflictError(
+                f"同一PDFは{duplicate.display_id}として登録済みです。",
+                duplicate.id,
+                code="identical_pdf",
+            )
+        directory = safe_item_dir(paper.display_id)
+        current = directory / "paper.pdf"
+        if not current.is_file():
+            raise RuntimeError("現在のPDFが見つからないため差し替えを中止しました。")
+        versions = directory / "versions"
+        had_versions_directory = versions.exists()
+        versions.mkdir(exist_ok=True)
+        version = versions / "paper.pdf"
+        token = uuid.uuid4().hex
+        new_stage = directory / f".replacement-{token}.pdf"
+        old_stage = versions / f".current-{token}.pdf"
+        previous_stage = versions / f".previous-{token}.pdf"
+        current_replaced = False
+        version_replaced = False
+        had_previous_version = version.is_file()
+        try:
+            copy_pdf_atomic(stream, new_stage, digest)
+            with current.open("rb") as current_stream:
+                current_digest, current_size = hash_stream(current_stream)
+            if current_digest != paper.pdf_hash or current_size != paper.pdf_size:
+                raise RuntimeError("現在のPDFと登録情報が一致しないため差し替えを中止しました。")
+            with current.open("rb") as current_stream:
+                copy_pdf_atomic(current_stream, old_stage, current_digest)
+            if had_previous_version:
+                with version.open("rb") as previous_stream:
+                    previous_digest, _ = hash_stream(previous_stream)
+                with version.open("rb") as previous_stream:
+                    copy_pdf_atomic(previous_stream, previous_stage, previous_digest)
+            os.replace(new_stage, current)
+            current_replaced = True
+            os.replace(old_stage, version)
+            version_replaced = True
+            replaced_at = now_iso()
+            paper.pdf_hash = digest
+            paper.pdf_size = size
+            paper.pdf_replaced_at = replaced_at
+            paper.updated_at = replaced_at
+            persist_paper(paper)
+            session.commit()
+            return paper_dict(paper)
+        except Exception:
+            session.rollback()
+            if current_replaced:
+                try:
+                    if version_replaced and version.exists():
+                        os.replace(version, current)
+                    elif old_stage.exists():
+                        os.replace(old_stage, current)
+                    if had_previous_version and previous_stage.exists():
+                        os.replace(previous_stage, version)
+                except OSError:
+                    pass
+            try:
+                session.refresh(paper)
+                persist_paper(paper)
+            except Exception:
+                pass
+            raise
+        finally:
+            for path in (new_stage, old_stage, previous_stage):
+                path.unlink(missing_ok=True)
+            if not had_versions_directory:
+                try:
+                    versions.rmdir()
+                except OSError:
+                    pass
 
 
 def list_papers(
@@ -551,8 +722,8 @@ def rebuild_index() -> dict[str, Any]:
                         for key in (
                             "id", "display_id", "title", "authors", "year", "journal", "volume", "issue", "pages",
                             "doi", "url", "language", "abstract", "rating", "completed_date", "remarks", "status",
-                            "status_history", "pdf_hash", "pdf_size", "created_at", "updated_at", "has_note",
-                            "deleted_at",
+                            "status_history", "pdf_hash", "pdf_size", "pdf_replaced_at", "created_at",
+                            "updated_at", "has_note", "deleted_at",
                         )
                     },
                     trashed=trashed,

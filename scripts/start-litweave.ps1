@@ -13,7 +13,7 @@ if (-not (Test-Path -LiteralPath (Join-Path $ProjectRoot "node_modules"))) {
     throw "Frontend dependencies are missing. Run scripts\setup.ps1 first."
 }
 
-Write-Host "Starting LitWeave v0.0.1"
+Write-Host "Starting LitWeave"
 Write-Host "Open: http://127.0.0.1:5173"
 $Backend = Start-Process -FilePath $Python -ArgumentList @("-m", "uvicorn", "backend.app.main:app", "--host", "127.0.0.1", "--port", "8000") -WorkingDirectory $ProjectRoot -PassThru -WindowStyle Hidden
 $Frontend = Start-Process -FilePath "npm.cmd" -ArgumentList @("run", "dev") -WorkingDirectory $ProjectRoot -PassThru -WindowStyle Hidden

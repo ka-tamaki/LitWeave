@@ -1,6 +1,6 @@
 [project]
 name = "litweave"
-version = "0.0.1"
+version = "0.0.2"
 description = "論文を編み、知識をつなぐローカル論文管理アプリ"
 requires-python = ">=3.12"
 dependencies = [

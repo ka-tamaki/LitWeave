@@ -1,6 +1,7 @@
-import {useEffect, useState} from "react";
+import {useEffect, useRef, useState} from "react";
 import {Link, useNavigate, useParams} from "react-router-dom";
 import {api} from "../api";
+import {readPdfSignature} from "../pdf";
 import type {Citation, Keyword, Paper} from "../types";
 import KeywordSelector from "../components/KeywordSelector";
 
@@ -9,6 +10,7 @@ const statuses = ["未読", "読書中", "既読", "再確認"];
 
 export default function DetailPage({readonly}: {readonly: boolean}) {
   const {id = ""} = useParams(); const navigate = useNavigate();
+  const pdfInputRef = useRef<HTMLInputElement>(null);
   const [paper, setPaper] = useState<Paper | null>(null);
   const [keywords, setKeywords] = useState<Keyword[]>([]);
   const [papers, setPapers] = useState<Paper[]>([]);
@@ -17,6 +19,7 @@ export default function DetailPage({readonly}: {readonly: boolean}) {
   const [editingTaskId, setEditingTaskId] = useState("");
   const [note, setNote] = useState(""); const [savedNote, setSavedNote] = useState("");
   const [error, setError] = useState(""); const [message, setMessage] = useState("");
+  const [pdfBusy, setPdfBusy] = useState(false);
   const dirty = note !== savedNote;
   const load = async () => {
     try {
@@ -66,10 +69,28 @@ export default function DetailPage({readonly}: {readonly: boolean}) {
     catch (cause) { setError(cause instanceof Error ? cause.message : "引用関係の追加に失敗しました。"); }
   }
   async function moveToTrash() { if (!confirm(`${paper?.title}をごみ箱へ移動しますか？`)) return; try { await api(`/papers/${id}/trash`, {method: "POST"}); navigate("/library"); } catch (cause) { setError(cause instanceof Error ? cause.message : "移動に失敗しました。"); } }
+  async function replacePdf(file?: File) {
+    if (!file || !paper) return;
+    setError(""); setMessage(""); setPdfBusy(true);
+    try {
+      if (await readPdfSignature(file) !== "%PDF-") throw new Error("有効なPDF形式ではありません。");
+      if (!confirm(`「${paper.title}」のPDFを差し替えますか？\n現在のPDFは旧版として1世代保持されます。`)) return;
+      const form = new FormData();
+      form.set("pdf", file);
+      const updated = await api<Paper>(`/papers/${id}/pdf`, {method: "POST", body: form});
+      setPaper(updated);
+      setMessage("PDFを差し替え、以前のPDFを1世代保存しました。");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "PDFの差し替えに失敗しました。");
+    } finally {
+      setPdfBusy(false);
+      if (pdfInputRef.current) pdfInputRef.current.value = "";
+    }
+  }
   if (!paper) return <main className="page">{error || "読み込み中…"}</main>;
   const related = citations.filter(value => value.source_id === id || value.target_id === id);
   return <main className="page">
-    <header className="page-header"><div><p className="eyebrow">{paper.display_id}</p><h1>{paper.title}</h1><p className="muted">{paper.authors.join(" / ") || "著者未登録"}</p></div><div className="actions"><select value={paper.status} onChange={async e => {await api(`/papers/${id}`, {method: "PATCH", body: JSON.stringify({status: e.target.value})}); load();}} disabled={readonly}>{statuses.map(value => <option key={value}>{value}</option>)}</select><button onClick={() => api(`/papers/${id}/open`, {method: "POST"}).catch(error => setError(error.message))}>PDFを開く</button></div></header>
+    <header className="page-header"><div><p className="eyebrow">{paper.display_id}</p><h1>{paper.title}</h1><p className="muted">{paper.authors.join(" / ") || "著者未登録"}</p></div><div className="actions"><select value={paper.status} onChange={async e => {await api(`/papers/${id}`, {method: "PATCH", body: JSON.stringify({status: e.target.value})}); load();}} disabled={readonly}>{statuses.map(value => <option key={value}>{value}</option>)}</select><button onClick={() => api(`/papers/${id}/open`, {method: "POST"}).catch(error => setError(error.message))}>PDFを開く</button><input ref={pdfInputRef} hidden type="file" accept="application/pdf,.pdf" onChange={event => replacePdf(event.target.files?.[0])}/><button className="secondary" onClick={() => pdfInputRef.current?.click()} disabled={readonly || pdfBusy}>{pdfBusy ? "差し替え中…" : "PDFを差し替え"}</button></div></header>
     {error && <div className="error">{error}</div>}{message && <div className="success">{message}</div>}
     <div className="tabs">{(["基本情報","メモ","タスク","引用","履歴"] as Tab[]).map(value => <button className={tab === value ? "active" : ""} onClick={() => switchTab(value)} key={value}>{value}{value === "メモ" && dirty ? " ●" : ""}{value === "タスク" && (paper.tasks ?? []).some(task => !task.completed) ? ` (${(paper.tasks ?? []).filter(task => !task.completed).length})` : ""}</button>)}</div>
     {tab === "基本情報" && <form className="panel form-grid" onSubmit={saveBasic}>
@@ -81,6 +102,6 @@ export default function DetailPage({readonly}: {readonly: boolean}) {
     {tab === "メモ" && <section className="panel"><div className="page-header"><div><strong>定型Markdownメモ</strong><p className="muted">各見出しは折りたたみの目印として維持できます。Markdown中のHTMLは画面上で実行しません。</p></div><span className={dirty ? "unsaved" : "muted"}>{dirty ? "未保存" : "保存済み"}</span></div><textarea aria-label="Markdownメモ" className="note-editor" value={note} onChange={e => setNote(e.target.value)} /><div className="actions"><button onClick={saveNote} disabled={readonly || !dirty}>保存（Ctrl+S）</button></div></section>}
     {tab === "タスク" && <section className="panel stack"><form className="task-form" onSubmit={addTask}><label>タイトル<input name="title" required maxLength={200} placeholder="例: 関連論文を確認する" /></label><label>詳細<textarea name="description" maxLength={4000} placeholder="確認する箇所や目的を記入" /></label><button disabled={readonly}>追加</button></form><div className="task-list">{(paper.tasks ?? []).map(task => editingTaskId === task.id ? <form className="task-edit-form" key={task.id} onSubmit={event => saveTask(event, task.id)}><label>タイトル<input name="title" required maxLength={200} defaultValue={task.title} /></label><label>詳細<textarea name="description" maxLength={4000} defaultValue={task.description} /></label><div className="actions"><button disabled={readonly}>保存</button><button type="button" className="secondary" onClick={() => setEditingTaskId("")}>キャンセル</button></div></form> : <div className={`task-item ${task.completed ? "completed" : ""}`} key={task.id}><label><input type="checkbox" checked={task.completed} disabled={readonly} onChange={event => setTaskCompleted(task.id, event.target.checked)} /><span><strong>{task.title}</strong>{task.description && <small>{task.description}</small>}</span></label><div className="task-actions"><button type="button" className="text-button" disabled={readonly} onClick={() => setEditingTaskId(task.id)}>編集</button><button type="button" className="text-button" disabled={readonly} onClick={() => deleteTask(task.id, task.title)}>削除</button></div></div>)}{(paper.tasks ?? []).length === 0 && <p className="muted">タスクはありません。</p>}</div></section>}
     {tab === "引用" && <div className="detail-grid"><form className="panel stack" onSubmit={addCitation}><strong>引用先を追加</strong><label>この論文が引用する論文<select required name="target_id" defaultValue=""><option value="" disabled>選択してください</option>{papers.filter(value => value.id !== id).map(value => <option value={value.id} key={value.id}>{value.display_id} {value.title}</option>)}</select></label><label>補足メモ<textarea name="note" /></label><button disabled={readonly}>引用関係を追加</button></form><section className="panel"><strong>登録済みの引用関係</strong>{related.map(value => {const other = papers.find(p => p.id === (value.source_id === id ? value.target_id : value.source_id)); return <div key={value.id} style={{padding: ".8rem 0", borderBottom: "1px solid #ddd"}}><small>{value.source_id === id ? "引用先 →" : "← 引用元"}</small><br/><Link to={`/papers/${other?.id}`}>{other?.title}</Link><p>{value.note}</p><button className="text-button" disabled={readonly} onClick={async () => {await api(`/citations/${value.id}`, {method:"DELETE"}); load();}}>削除</button></div>;})}{related.length === 0 && <p className="muted">引用関係はまだありません。</p>}</section></div>}
-    {tab === "履歴" && <section className="panel"><table><thead><tr><th>状態</th><th>変更日時</th></tr></thead><tbody>{paper.status_history.map((value,index) => <tr key={index}><td>{value.status}</td><td>{new Date(value.changed_at).toLocaleString("ja-JP")}</td></tr>)}</tbody></table></section>}
+    {tab === "履歴" && <section className="panel"><table><thead><tr><th>内容</th><th>変更日時</th></tr></thead><tbody>{paper.pdf_replaced_at && <tr><td>PDF差し替え</td><td>{new Date(paper.pdf_replaced_at).toLocaleString("ja-JP")}</td></tr>}{paper.status_history.map((value,index) => <tr key={index}><td>読書状態: {value.status}</td><td>{new Date(value.changed_at).toLocaleString("ja-JP")}</td></tr>)}</tbody></table></section>}
   </main>;
 }
