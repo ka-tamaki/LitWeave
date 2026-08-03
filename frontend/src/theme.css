@@ -338,6 +338,49 @@ tr:hover td {
   padding: 0.8rem 0;
 }
 
+.markdown-editor .lw-md-heading {
+  color: #174ea6;
+  font-weight: 700;
+}
+
+.markdown-editor .lw-md-mark,
+.markdown-editor .lw-md-list {
+  color: #b54708;
+  font-weight: 700;
+}
+
+.markdown-editor .lw-md-strong {
+  color: #7e22ce;
+  font-weight: 700;
+}
+
+.markdown-editor .lw-md-emphasis {
+  color: #be185d;
+  font-style: italic;
+}
+
+.markdown-editor .lw-md-strikethrough {
+  color: #64748b;
+  text-decoration: line-through;
+}
+
+.markdown-editor .lw-md-link,
+.markdown-editor .lw-md-url {
+  color: #0369a1;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown-editor .lw-md-code {
+  color: #b42318;
+  background: #fff1f0;
+}
+
+.markdown-editor .lw-md-quote {
+  color: #3f6212;
+  font-style: italic;
+}
+
 .markdown-preview {
   min-height: 24rem;
   overflow-wrap: anywhere;

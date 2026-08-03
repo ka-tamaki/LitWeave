@@ -15,7 +15,7 @@ def test_initial_setup_creates_canonical_structure(client):
     assert not (library / "litweave.db").exists()
     system = http.get("/api/system").json()
     assert system["configured"] and system["writable"]
-    assert system["version"] == "0.2.0"
+    assert system["version"] == "0.2.1"
 
 
 def test_register_creates_pdf_metadata_and_note(client, pdf_bytes):

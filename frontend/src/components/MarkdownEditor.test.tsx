@@ -12,6 +12,7 @@ describe("MarkdownEditor", () => {
     expect(document.querySelector(".cm-editor")).toBeInTheDocument();
     expect(document.querySelector(".cm-gutters")).not.toBeInTheDocument();
     expect(document.querySelector(".cm-activeLine")).not.toBeInTheDocument();
+    expect(document.querySelector(".lw-md-heading")).toBeInTheDocument();
     expect(document.querySelectorAll(".cm-line")).toHaveLength(2);
   });
 
@@ -42,5 +43,31 @@ describe("MarkdownEditor", () => {
     fireEvent.keyDown(screen.getByRole("textbox", {name: "Markdownメモ"}), {key: "s", code: "KeyS", ctrlKey: true});
 
     expect(onSave).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    {key: "b", code: "KeyB", source: "太字", expected: "**太字**"},
+    {key: "i", code: "KeyI", source: "斜体", expected: "*斜体*"},
+    {key: "k", code: "KeyK", source: "リンク", expected: "[リンク](https://)"},
+  ])("Ctrl+$codeで選択範囲へMarkdown記法を追加する", ({key, code, source, expected}) => {
+    const ref = createRef<MarkdownEditorRef>();
+    const onChange = vi.fn();
+    render(<MarkdownEditor ref={ref} value={source} onChange={onChange} onSave={() => undefined} readonly={false} />);
+    act(() => ref.current?.view?.dispatch({selection: {anchor: 0, head: source.length}}));
+
+    fireEvent.keyDown(screen.getByRole("textbox", {name: "Markdownメモ"}), {key, code, ctrlKey: true});
+
+    expect(onChange.mock.calls.at(-1)?.[0]).toBe(expected);
+  });
+
+  it("未選択のCtrl+Bでは記号の中央へカーソルを置く", () => {
+    const ref = createRef<MarkdownEditorRef>();
+    const onChange = vi.fn();
+    render(<MarkdownEditor ref={ref} value="" onChange={onChange} onSave={() => undefined} readonly={false} />);
+
+    fireEvent.keyDown(screen.getByRole("textbox", {name: "Markdownメモ"}), {key: "b", code: "KeyB", ctrlKey: true});
+
+    expect(onChange.mock.calls.at(-1)?.[0]).toBe("****");
+    expect(ref.current?.view?.state.selection.main.anchor).toBe(2);
   });
 });
