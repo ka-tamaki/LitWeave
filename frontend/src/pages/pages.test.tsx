@@ -6,6 +6,12 @@ import RegisterPage from "./RegisterPage";
 import GraphPage from "./GraphPage";
 import TrashPage from "./TrashPage";
 import KeywordsPage from "./KeywordsPage";
+import DetailPage from "./DetailPage";
+
+vi.mock("../components/MarkdownEditor",()=>({
+  default: ({value,onChange,readonly}:{value:string;onChange:(value:string)=>void;readonly:boolean}) =>
+    <textarea aria-label="Markdownメモ" value={value} onChange={event=>onChange(event.target.value)} readOnly={readonly}/>,
+}));
 
 const paper = {id:"1",display_id:"P000001",title:"Alpha paper",authors:["A. Author"],year:2025,journal:"Journal",volume:"",issue:"",pages:"",doi:"",url:"",language:"英語",abstract:"",rating:4,completed_date:null,remarks:"",status:"未読",status_history:[],created_at:"2026-01-01",updated_at:"2026-01-01",has_note:false,trashed:false,deleted_at:null,keywords:[],tasks:[{id:"task-1",paper_id:"1",title:"関連論文を読む",description:"方法と結果を比較する",completed:false,created_at:"2026-01-01",updated_at:"2026-01-01"}]};
 const keyword = {id:"keyword-1",name:"Carbon",color:"#112233"};
@@ -115,6 +121,28 @@ describe("主要画面",()=>{
       expect(posts).toHaveLength(2);
       expect((posts[1][1]?.body as FormData).get("allow_metadata_duplicate")).toBe("true");
     });
+  });
+
+  it("未保存のMarkdownメモをプレビューへ切り替えて確認できる", async () => {
+    vi.mocked(fetch).mockImplementation((input:RequestInfo|URL)=>{
+      const url=String(input);
+      if(url.endsWith("/papers/1/note"))return response({content:""});
+      if(url.endsWith("/papers/1"))return response(paper);
+      if(url.endsWith("/papers"))return response([paper]);
+      if(url.endsWith("/keywords")||url.endsWith("/citations"))return response([]);
+      return response({});
+    });
+    render(<MemoryRouter initialEntries={["/papers/1"]}><Routes><Route path="/papers/:id" element={<DetailPage readonly={false}/>} /></Routes></MemoryRouter>);
+
+    expect(await screen.findByRole("heading",{name:"Alpha paper"})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button",{name:"メモ"}));
+    const editor=screen.getByLabelText("Markdownメモ");
+    fireEvent.change(editor,{target:{value:"## 未保存の結果"}});
+    expect(screen.getByText("未保存")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button",{name:"プレビュー"}));
+
+    expect(screen.queryByLabelText("Markdownメモ")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading",{name:"未保存の結果",level:2})).toBeInTheDocument();
   });
 
   it("グラフモードを切り替えられる",async()=>{

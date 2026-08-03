@@ -287,6 +287,97 @@ tr:hover td {
   text-decoration: line-through;
 }
 
+.note-view-switch {
+  display: inline-flex;
+  margin: 1rem 0;
+  border: 1px solid #c5cfdd;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.note-view-switch button {
+  min-width: 6.5rem;
+  border: 0;
+  border-radius: 0;
+  background: white;
+  color: var(--navy-800);
+}
+
+.note-view-switch button + button {
+  border-left: 1px solid #c5cfdd;
+}
+
+.note-view-switch button.active {
+  background: var(--navy-800);
+  color: white;
+}
+
+.markdown-editor {
+  overflow: hidden;
+  border: 1px solid #c5cfdd;
+  border-radius: 8px;
+  background: white;
+}
+
+.markdown-editor .cm-editor {
+  color: #263247;
+  font-family: Consolas, "Yu Gothic UI", monospace;
+  font-size: 0.95rem;
+}
+
+.markdown-editor .cm-editor.cm-focused {
+  outline: 3px solid #87a5cc;
+  outline-offset: -1px;
+}
+
+.markdown-editor .cm-scroller {
+  line-height: 1.7;
+}
+
+.markdown-editor .cm-content {
+  padding: 0.8rem 0;
+}
+
+.markdown-preview {
+  min-height: 24rem;
+  overflow-wrap: anywhere;
+  border: 1px solid #c5cfdd;
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  background: white;
+  line-height: 1.7;
+}
+
+.markdown-preview > :first-child {
+  margin-top: 0;
+}
+
+.markdown-preview > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-preserve-breaks {
+  white-space: pre-wrap;
+}
+
+.markdown-preview pre {
+  overflow-x: auto;
+  border-radius: 6px;
+  padding: 0.85rem;
+  background: var(--navy-50);
+}
+
+.markdown-preview code {
+  font-family: Consolas, "Courier New", monospace;
+}
+
+.markdown-preview blockquote {
+  margin-left: 0;
+  border-left: 4px solid #c5cfdd;
+  padding-left: 1rem;
+  color: #526177;
+}
+
 .home-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) clamp(17rem, 24vw, 21rem);

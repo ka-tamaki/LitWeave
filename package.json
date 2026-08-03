@@ -1,7 +1,7 @@
 {
   "name": "litweave",
   "private": true,
-  "version": "0.0.2",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -11,9 +11,13 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@codemirror/lang-markdown": "6.5.1",
+    "@codemirror/view": "6.43.7",
+    "@uiw/react-codemirror": "4.25.11",
     "cytoscape": "3.33.1",
     "react": "19.2.7",
     "react-dom": "19.2.7",
+    "react-markdown": "10.1.0",
     "react-router-dom": "7.18.1"
   },
   "devDependencies": {
