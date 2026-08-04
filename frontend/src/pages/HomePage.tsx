@@ -5,11 +5,11 @@ import type {Keyword, Paper} from "../types";
 import TaskTable from "../components/TaskTable";
 
 const statuses = ["未読", "読書中", "既読", "再確認"] as const;
-const statusColors: Record<Paper["status"], {background: string; color: string}> = {
-  "未読": {background: "#ecefed", color: "#52625b"},
-  "読書中": {background: "#fff0cc", color: "#795b13"},
-  "既読": {background: "#dff0e6", color: "#2f6848"},
-  "再確認": {background: "#f7e3df", color: "#8a4038"},
+const statusClasses: Record<Paper["status"], string> = {
+  "未読": "unread",
+  "読書中": "reading",
+  "既読": "read",
+  "再確認": "review",
 };
 
 function RatingStars({rating}: {rating: number | null}) {
@@ -64,7 +64,7 @@ export default function HomePage({readonly = false}: {readonly?: boolean}) {
                 navigate(`/papers/${paper.id}`);
               }
             }}
-          ><td className="status"><span className="tag" style={{...statusColors[paper.status], border: "0", fontWeight: 700}}>{paper.status}</span></td><td className="paper-title-cell"><span className="title-link" title={paper.title}>{paper.title}</span><div className="muted" title={paper.authors.join(" / ") || "著者未登録"} style={{whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"}}>{paper.authors.join(" / ") || "著者未登録"}</div></td><td>{paper.year ?? "—"}</td><td>{paper.keywords.map(value => <span className="tag" style={{borderLeft: `3px solid ${value.color}`}} key={value.id}>{value.name}</span>)}</td><td><RatingStars rating={paper.rating} /></td><td>{new Date(paper.created_at).toLocaleDateString("ja-JP")}</td></tr>)}</tbody>
+          ><td className="status"><span className={`tag status-badge status-${statusClasses[paper.status]}`}>{paper.status}</span></td><td className="paper-title-cell"><span className="title-link" title={paper.title}>{paper.title}</span><div className="muted" title={paper.authors.join(" / ") || "著者未登録"} style={{whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis"}}>{paper.authors.join(" / ") || "著者未登録"}</div></td><td>{paper.year ?? "—"}</td><td>{paper.keywords.map(value => <span className="tag" style={{borderLeft: `3px solid ${value.color}`}} key={value.id}>{value.name}</span>)}</td><td><RatingStars rating={paper.rating} /></td><td>{new Date(paper.created_at).toLocaleDateString("ja-JP")}</td></tr>)}</tbody>
         </table>{papers.length === 0 && <div className="empty">条件に一致する論文はありません。</div>}</div>
       </section>
     </div><TaskTable papers={taskPapers} readonly={readonly} reload={() => {load(); void loadTasks();}} /></div>

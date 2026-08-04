@@ -4,6 +4,7 @@ import {markdown} from "@codemirror/lang-markdown";
 import {syntaxHighlighting} from "@codemirror/language";
 import {EditorView, keymap} from "@codemirror/view";
 import {tagHighlighter, tags} from "@lezer/highlight";
+import {useTheme} from "../theme";
 
 export type MarkdownEditorRef = ReactCodeMirrorRef;
 
@@ -56,6 +57,7 @@ const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>(functi
   {value, onChange, onSave, readonly},
   ref,
 ) {
+  const {theme} = useTheme();
   const saveRef = useRef(onSave);
   useEffect(() => { saveRef.current = onSave; }, [onSave]);
 
@@ -82,7 +84,7 @@ const MarkdownEditor = forwardRef<MarkdownEditorRef, MarkdownEditorProps>(functi
       className="markdown-editor"
       value={value}
       minHeight="30rem"
-      theme="light"
+      theme={theme}
       basicSetup={{
         lineNumbers: false,
         foldGutter: false,

@@ -8,6 +8,7 @@ import GraphPage from "./pages/GraphPage";
 import KeywordsPage from "./pages/KeywordsPage";
 import TrashPage from "./pages/TrashPage";
 import SettingsPage from "./pages/SettingsPage";
+import {useTheme} from "./theme";
 
 type SystemInfo = {version: string; configured: boolean; library_path?: string; available: boolean; writable: boolean; message: string};
 type MenuIconName = "home" | "register" | "graph" | "keywords" | "trash" | "settings";
@@ -47,6 +48,7 @@ function Setup({refresh}: {refresh: () => void}) {
 }
 
 export default function App() {
+  const {theme, toggleTheme} = useTheme();
   const [system, setSystem] = useState<SystemInfo | null>(null);
   const [loadError, setLoadError] = useState("");
   const refresh = () => api<SystemInfo>("/system").then(setSystem).catch(error => setLoadError(error.message));
@@ -65,6 +67,10 @@ export default function App() {
         <NavLink to="/trash" style={{display: "flex", alignItems: "center", gap: ".75rem"}}><MenuIcon name="trash"/>ごみ箱</NavLink>
         <NavLink to="/settings" style={{display: "flex", alignItems: "center", gap: ".75rem"}}><MenuIcon name="settings"/>設定</NavLink>
       </nav>
+      <button className="theme-toggle" type="button" aria-pressed={theme === "dark"} onClick={toggleTheme}>
+        <span aria-hidden="true">{theme === "dark" ? "☀" : "☾"}</span>
+        {theme === "dark" ? "ライトモード" : "ダークモード"}
+      </button>
       <div className={`storage ${system.available ? "" : "offline"}`}><i />{system.available ? "Box Drive 利用可能" : "Box Drive 利用不可"}<small>{system.writable ? "ローカル保存可能" : "読み取り専用"}</small></div>
     </aside>
     <div className="main-area">

@@ -136,12 +136,16 @@ describe("主要画面",()=>{
 
     expect(await screen.findByRole("heading",{name:"Alpha paper"})).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button",{name:"メモ"}));
+    expect(screen.getByRole("button",{name:"メモ"})).toHaveAttribute("aria-pressed","true");
+    expect(screen.getByRole("button",{name:"基本情報"})).toHaveAttribute("aria-pressed","false");
     const editor=screen.getByLabelText("Markdownメモ");
     fireEvent.change(editor,{target:{value:"## 未保存の結果"}});
     expect(screen.getByText("未保存")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button",{name:"プレビュー"}));
 
     expect(screen.queryByLabelText("Markdownメモ")).not.toBeInTheDocument();
+    expect(screen.getByRole("button",{name:"プレビュー"})).toHaveAttribute("aria-pressed","true");
+    expect(screen.getByRole("button",{name:"編集"})).toHaveAttribute("aria-pressed","false");
     expect(screen.getByRole("heading",{name:"未保存の結果",level:2})).toBeInTheDocument();
   });
 
